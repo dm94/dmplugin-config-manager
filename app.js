@@ -14,11 +14,8 @@ function toast(message) {
   toastTimer = setTimeout(() => element.classList.remove("show"), 3600);
 }
 
-async function api(path, options = {}) {
-  const response = await fetch(path, {
-    cache: "no-store", ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) }
-  });
+async function api(url, options = {}) {
+  const response = await fetch(url, { cache: "no-store", ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } });
   const result = response.status === 204 ? {} : await response.json();
   if (!response.ok) throw new Error(result.error || `Error HTTP ${response.status}`);
   return result;
@@ -39,10 +36,6 @@ function waitLabel(timestamp) {
   return `Próxima revisión en ${hours ? `${hours} h ` : ""}${minutes} min`;
 }
 
-function profileName(bot) {
-  return bot.current_profile || "Perfil actual sin indicar";
-}
-
 function renderBot(bot) {
   const result = bot.last_result || {};
   const status = result.status || {};
@@ -54,7 +47,7 @@ function renderBot(bot) {
   const event = result.events?.generic?.status;
   const eventActive = event && !["INACTIVE", "NONE", "UNAVAILABLE"].includes(String(event).toUpperCase());
   return `<article class="panel bot-card" data-bot-id="${escapeHtml(bot.id)}">
-    <div class="bot-top"><div class="bot-title"><span class="bot-icon" aria-hidden="true">${escapeHtml(bot.name.slice(0, 1).toUpperCase())}</span><div><h3>${escapeHtml(bot.name)}</h3><span class="bot-subtitle">${escapeHtml(profileName(bot))} · ${escapeHtml(waitLabel(bot.next_review_at))}</span></div></div><span class="bot-state ${online ? "" : "offline"}">${busy ? "REVISANDO" : online ? (bot.enabled ? "CONECTADO" : "PAUSADO") : "REVISIÓN FALLIDA"}</span></div>
+    <div class="bot-top"><div class="bot-title"><span class="bot-icon" aria-hidden="true">${escapeHtml(bot.name.slice(0, 1).toUpperCase())}</span><div><h3>${escapeHtml(bot.name)}</h3><span class="bot-subtitle">${escapeHtml(bot.current_profile || "Perfil actual sin indicar")} · ${escapeHtml(waitLabel(bot.next_review_at))}</span></div></div><span class="bot-state ${online ? "" : "offline"}">${busy ? "REVISANDO" : online ? (bot.enabled ? "CONECTADO" : "PAUSADO") : "REVISIÓN FALLIDA"}</span></div>
     <div class="bot-metrics"><div class="metric"><small>Créditos</small><b>${number(stats.credits)}</b></div><div class="metric"><small>Uridium · reservado para puertas</small><b>${number(stats.uridium)}</b></div><div class="metric"><small>Estado / mapa</small><b>${escapeHtml(status.map_name || "Sin datos")}</b></div><div class="metric"><small>Evento NPC</small><b>${escapeHtml(eventActive ? event : "Sin evento activo")}</b></div></div>
     <div class="bot-bottom"><div class="review-note">${escapeHtml(message)}${recommendation.confidence ? ` · Confianza ${Math.round(recommendation.confidence * 100)}%` : ""}${result.reviewed_at ? ` · ${escapeHtml(new Date(result.reviewed_at).toLocaleString("es-ES"))}` : ""}</div><div class="bot-actions"><label class="autotoggle"><input class="auto-apply" type="checkbox" ${bot.auto_apply ? "checked" : ""} aria-label="Aplicar automáticamente perfiles guardados para ${escapeHtml(bot.name)}"> Aplicar perfil guardado</label><button class="button button-quiet review-button" type="button" ${busy ? "disabled" : ""}>${busy ? "Analizando…" : "Revisar ahora"}</button><button class="text-button remove-button" type="button" aria-label="Eliminar ${escapeHtml(bot.name)}">Eliminar</button></div></div>
   </article>`;
@@ -74,22 +67,15 @@ function render() {
   $("#bot-list").innerHTML = state.bots.map(renderBot).join("");
   $("#empty-state").hidden = state.bots.length > 0;
   document.querySelectorAll("#bot-list .review-button").forEach((button) => {
-    if (button.closest("[data-bot-id]") && state.running_reviews.includes(button.closest("[data-bot-id]").dataset.botId)) {
-      button.disabled = true;
-      button.textContent = "Analizando…";
-    }
+    const id = button.closest("[data-bot-id]")?.dataset.botId;
+    if (id && state.running_reviews.includes(id)) { button.disabled = true; button.textContent = "Analizando…"; }
   });
   $("#clock").textContent = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" }).format(new Date());
 }
 
 async function refresh() {
-  try {
-    state = await api("/api/state");
-    render();
-  } catch (error) {
-    $("#ai-status").textContent = "Gestor desconectado";
-    toast(error.message);
-  }
+  try { state = await api("/api/state"); render(); }
+  catch (error) { $("#ai-status").textContent = "Gestor desconectado"; toast(error.message); }
 }
 
 function setAddForm(open) {
@@ -111,9 +97,8 @@ $("#add-bot-panel").addEventListener("submit", async (event) => {
   button.textContent = "Conectando…";
   try {
     const result = await api("/api/bots", { method: "POST", body: JSON.stringify({
-      name: form.get("name"), port: form.get("port"),
-      current_profile: form.get("current_profile"), profile_notes: form.get("profile_notes"),
-      url: `http://127.0.0.1:${form.get("port")}/mcp`
+      name: form.get("name"), port: form.get("port"), current_profile: form.get("current_profile"),
+      profile_notes: form.get("profile_notes"), url: `http://127.0.0.1:${form.get("port")}/mcp`
     }) });
     state.bots.push(result.bot);
     render();
@@ -121,23 +106,17 @@ $("#add-bot-panel").addEventListener("submit", async (event) => {
     formElement.elements.port.value = "9876";
     setAddForm(false);
     toast("Bot conectado. Solicita una revisión para recibir la recomendación de IA.");
-  } catch (error) {
-    toast(error.message);
-  } finally {
-    button.disabled = false;
-    button.textContent = "Conectar y leer estado";
-  }
+  } catch (error) { toast(error.message); }
+  finally { button.disabled = false; button.textContent = "Conectar y leer estado"; }
 });
 
 $("#settings-form").addEventListener("input", () => { settingsDirty = true; });
-
 $("#settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
     await api("/api/settings", { method: "POST", body: JSON.stringify({
-      interval_hours: Number($("#interval-hours").value),
-      ai_url: $("#ai-url").value, ai_model: $("#ai-model").value,
-      ai_api_key: $("#ai-api-key").value,
+      interval_hours: Number($("#interval-hours").value), ai_url: $("#ai-url").value,
+      ai_model: $("#ai-model").value, ai_api_key: $("#ai-api-key").value,
       clear_ai_api_key: $("#clear-ai-api-key").checked
     }) });
     $("#clear-ai-api-key").checked = false;
@@ -170,16 +149,11 @@ $("#bot-list").addEventListener("change", async (event) => {
   const card = event.target.closest("[data-bot-id]");
   if (!card || !event.target.matches(".auto-apply")) return;
   try {
-    await api(`/api/bots/${encodeURIComponent(card.dataset.botId)}/auto`, {
-      method: "POST", body: JSON.stringify({ auto_apply: event.target.checked })
-    });
+    await api(`/api/bots/${encodeURIComponent(card.dataset.botId)}/auto`, { method: "POST", body: JSON.stringify({ auto_apply: event.target.checked }) });
     const bot = state.bots.find((item) => item.id === card.dataset.botId);
     if (bot) bot.auto_apply = event.target.checked;
     toast(event.target.checked ? "Se aplicarán automáticamente solo perfiles MCP existentes." : "Aplicación automática desactivada.");
-  } catch (error) {
-    event.target.checked = !event.target.checked;
-    toast(error.message);
-  }
+  } catch (error) { event.target.checked = !event.target.checked; toast(error.message); }
 });
 
 refresh();
