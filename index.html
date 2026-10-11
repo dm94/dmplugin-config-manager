@@ -35,8 +35,8 @@
       <div class="section-heading"><div><p class="eyebrow">INSTANCIAS CONECTADAS</p><h2 id="bots-title">Tus bots <span id="bot-count" class="count">0</span></h2></div><button id="add-toggle" class="button button-accent" type="button" aria-expanded="false" aria-controls="add-bot-panel">＋ Añadir bot</button></div>
       <form id="add-bot-panel" class="panel add-form" hidden>
         <h3>Conectar por MCP</h3>
-        <p>Introduce el puerto MCP de DmPlugin y el nombre del perfil que está usando ahora.</p>
-        <div class="add-grid"><label>Nombre de la cuenta<input name="name" maxlength="60" placeholder="Bot principal" required></label><label>Puerto MCP<input name="port" type="number" min="1024" max="65535" value="9876" required></label><label>Perfil activo actualmente<input name="current_profile" maxlength="100" placeholder="Ej. config" required></label><label class="profile-notes">Uso de los perfiles guardados <span>Describe brevemente los nombres tal como aparecen, por ejemplo: GG = puertas, paladio = recoger paladio, PvP = combate contra jugadores. Máx. 2000 caracteres.</span><textarea name="profile_notes" maxlength="2000" rows="3" required placeholder="GG = puertas; paladio = recoger paladio; PvP = combate contra jugadores"></textarea></label></div>
+        <p>Indica el nombre de la cuenta y el puerto MCP de DmPlugin. El gestor lee del propio MCP la lista de perfiles y el estado actual: no hace falta escribirlos.</p>
+        <div class="add-grid"><label>Nombre de la cuenta<input name="name" maxlength="60" placeholder="Bot principal" required></label><label>Puerto MCP<input name="port" type="number" min="1024" max="65535" value="9876" required></label></div>
         <div class="form-actions"><button class="button button-quiet" id="cancel-add" type="button">Cancelar</button><button class="button button-dark" type="submit">Conectar y leer estado</button></div>
       </form>
       <div id="bot-list" class="bot-list" aria-live="polite"></div>

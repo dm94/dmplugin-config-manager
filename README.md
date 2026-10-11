@@ -27,7 +27,7 @@ El servidor solo escucha en loopback. Pulsa `Ctrl+C` en la terminal para detener
 ## Uso
 
 1. En **URL base OpenAI-compatible**, indica la URL base del proveedor (por ejemplo, `https://api.example.com/v1`), el identificador exacto del modelo y la API key si es necesaria. El gestor añade `/chat/completions`; también acepta una URL terminada ya con esa ruta.
-2. Añade cada bot mediante su puerto MCP, el nombre exacto del perfil activo y una descripción breve de los perfiles existentes (el MCP comparte los nombres, pero no el propósito).
+2. Añade cada bot con un nombre y su puerto MCP. Al conectar, el gestor lee del propio MCP la lista de perfiles y el estado; no hay que escribir perfiles ni descripciones.
 3. La primera revisión se programa después de conectar y las siguientes usan el intervalo configurado (8 horas por defecto).
 4. **Aplicar perfil guardado** permite aplicar solo una recomendación de perfil que siga existiendo en MCP. Desactívalo para recibir recomendaciones sin cambios automáticos.
 
@@ -42,6 +42,8 @@ El MCP consultado ofrece recursos de estado, estadísticas, inventario, perfiles
 - Reserva el uridium para puertas y envía al proveedor configurado un resumen limitado del estado del bot seleccionado.
 
 El inventario disponible puede no reflejar todas las propiedades o niveles del equipo; las recomendaciones no garantizan la configuración óptima.
+
+El MCP de DmPlugin publica la lista de perfiles (`bot://profiles`) pero no cuál está activo. Por eso el gestor no pide ese dato: registra únicamente el último perfil que aplicó (`set_profile`) y lo comparte con la IA como contexto. Si cambias de perfil a mano en DarkBot, el gestor no lo sabrá y puede volver a recomendar otro perfil existente.
 
 ## Pruebas
 

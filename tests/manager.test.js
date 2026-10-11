@@ -95,7 +95,9 @@ test('HTTP server serves UI and persists settings without exposing the key', asy
   const base = `http://127.0.0.1:${port}`;
   const html = await fetch(`${base}/`);
   assert.equal(html.status, 200);
-  assert.match(await html.text(), /URL base OpenAI-compatible/);
+  const htmlText = await html.text();
+  assert.match(htmlText, /URL base OpenAI-compatible/);
+  assert.doesNotMatch(htmlText, /name="current_profile"|name="profile_notes"/);
   const settings = await fetch(`${base}/api/settings`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ interval_hours: 12, ai_url: 'https://api.example.com/v1', ai_model: 'chat-model', ai_api_key: 'private-test-key' }),
@@ -106,6 +108,88 @@ test('HTTP server serves UI and persists settings without exposing the key', asy
   assert.equal('ai_api_key' in publicData, false);
   assert.equal(JSON.stringify(publicData).includes('private-test-key'), false);
   assert.equal(manager.loadState().ai_api_key, 'private-test-key');
+});
+
+test('adding a bot only needs its name and MCP port and reads profiles from MCP', async (context) => {
+  const originalPath = manager.getStatePath();
+  const originalState = structuredClone(manager.STATE);
+  Object.assign(manager.STATE, { bots: [], interval_hours: 8, ai_url: '', ai_model: '', ai_api_key: '' });
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dm-manager-add-'));
+  manager.setStatePath(path.join(directory, 'state.json'));
+  const mcp = createFakeMcpServer();
+  mcp.listen(0, '127.0.0.1');
+  await once(mcp, 'listening');
+  const server = manager.startServer(0);
+  await once(server, 'listening');
+  context.after(async () => {
+    await new Promise((resolve) => server.close(resolve));
+    await new Promise((resolve) => mcp.close(resolve));
+    manager.setStatePath(originalPath);
+    Object.assign(manager.STATE, originalState);
+    fs.rmSync(directory, { recursive: true, force: true });
+  });
+  const created = await fetch(`http://127.0.0.1:${server.address().port}/api/bots`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'Cuenta GG', url: `http://127.0.0.1:${mcp.address().port}/mcp` }),
+  });
+  assert.equal(created.status, 201);
+  const { bot } = await created.json();
+  assert.equal(bot.name, 'Cuenta GG');
+  assert.equal(bot.applied_profile, '');
+  assert.equal('current_profile' in bot, false);
+  assert.equal('profile_notes' in bot, false);
+  assert.deepEqual(bot.profiles, ['config', 'doors', 'paladio']);
+  assert.deepEqual(bot.last_result.profiles, ['config', 'doors', 'paladio']);
+  const publicState = await (await fetch(`http://127.0.0.1:${server.address().port}/api/state`)).json();
+  assert.equal(JSON.stringify(publicState).includes('current_profile'), false);
+});
+
+test('review without a user-declared current profile applies the profile backed by live MCP data', async (context) => {
+  const realFetch = global.fetch;
+  const originalPath = manager.getStatePath();
+  const originalState = structuredClone(manager.STATE);
+  Object.assign(manager.STATE, { bots: [], interval_hours: 8, ai_url: 'https://api.example.com/v1', ai_model: 'chat-model', ai_api_key: '' });
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dm-manager-review-'));
+  manager.setStatePath(path.join(directory, 'state.json'));
+  global.fetch = async (url, options) => {
+    if (String(url).startsWith('https://api.example.com')) {
+      return response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ action: 'use_profile', profile: 'doors', confidence: 0.7, summary: 'Convierte el evento en puertas' }) } }] }));
+    }
+    return realFetch(url, options);
+  };
+  const mcp = createFakeMcpServer();
+  mcp.listen(0, '127.0.0.1');
+  await once(mcp, 'listening');
+  const server = manager.startServer(0);
+  await once(server, 'listening');
+  context.after(async () => {
+    global.fetch = realFetch;
+    await new Promise((resolve) => server.close(resolve));
+    await new Promise((resolve) => mcp.close(resolve));
+    manager.setStatePath(originalPath);
+    Object.assign(manager.STATE, originalState);
+    fs.rmSync(directory, { recursive: true, force: true });
+  });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const created = await fetch(`${base}/api/bots`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'Cuenta GG', url: `http://127.0.0.1:${mcp.address().port}/mcp` }),
+  });
+  assert.equal(created.status, 201);
+  const { bot } = await created.json();
+  const review = await fetch(`${base}/api/bots/${bot.id}/review`, { method: 'POST', body: '{}' });
+  assert.equal(review.status, 202);
+  let reviewed;
+  for (let attempt = 0; attempt < 100 && !reviewed; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const state = await (await fetch(`${base}/api/state`)).json();
+    const current = state.bots.find((item) => item.id === bot.id);
+    if (current?.last_result?.outcome) reviewed = current;
+  }
+  assert.ok(reviewed, 'la revisión debía completarse');
+  assert.equal(reviewed.applied_profile, 'doors');
+  assert.match(reviewed.last_result.outcome, /Perfil activado: doors/);
+  assert.equal(reviewed.last_result.recommendation.action, 'use_profile');
 });
 
 test('MCP Streamable HTTP initialize/resources/tools work against fake server', async (context) => {

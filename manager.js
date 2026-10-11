@@ -63,7 +63,9 @@ function loadState() {
     try {
       bot.url = safeEndpoint(String(bot.url || ''));
       bot.id ||= crypto.randomUUID().replaceAll('-', '');
-      bot.name ||= 'DarkBot'; bot.current_profile ||= ''; bot.profile_notes ||= '';
+      bot.name ||= 'DarkBot'; bot.applied_profile ||= '';
+      bot.profiles = Array.isArray(bot.profiles) ? bot.profiles.filter((profile) => typeof profile === 'string' && profile).slice(0, 500) : [];
+      delete bot.current_profile; delete bot.profile_notes;
       bot.auto_apply ??= true; bot.enabled ??= true; bot.last_review_at ??= null; bot.last_result ??= null;
       if (bot.next_review_at != null && !Number.isFinite(Number(bot.next_review_at))) bot.next_review_at = null;
       else if (bot.next_review_at != null) bot.next_review_at = Number(bot.next_review_at);
@@ -218,8 +220,7 @@ async function evaluate(bot) {
   const client = new McpClient(bot.url);
   await client.connect();
   const [capabilities, context] = await Promise.all([client.tools(), snapshot(client)]);
-  context.active_profile_configured_by_user = bot.current_profile || '';
-  context.profile_notes_configured_by_user = bot.profile_notes || '';
+  context.profile_applied_by_manager = bot.applied_profile || '';
   const recommendation = await askAi(STATE.ai_url, STATE.ai_model, STATE.ai_api_key, context);
   recommendation.blocked_tools = capabilities.filter((tool) => ['set_profile', 'set_config'].includes(tool.name)).map((tool) => tool.name);
   recommendation.profile_creation_supported = capabilities.some((tool) => /create_profile|save_profile|create profile|save profile/i.test(`${tool.name || ''} ${tool.description || ''}`));
@@ -241,12 +242,7 @@ async function reviewBot(botId, source = 'manual') {
     let outcome = recommendation.summary;
     if (recommendation.blocked_reason) outcome += ` ${recommendation.blocked_reason}`;
     let selected = null;
-    if (!profiles.includes(copy.current_profile)) {
-      recommendation.action = 'keep'; recommendation.profile = null;
-      recommendation.blocked_reason = 'No se aplicó ningún cambio: el perfil actual no está confirmado en la lista MCP.';
-      outcome = recommendation.blocked_reason;
-    }
-    if (recommendation.action === 'use_profile' && profiles.includes(recommendation.profile) && recommendation.profile !== copy.current_profile && copy.auto_apply) {
+    if (recommendation.action === 'use_profile' && profiles.includes(recommendation.profile) && recommendation.profile !== copy.applied_profile && copy.auto_apply) {
       const active = STATE.bots.find((item) => item.id === botId);
       if (!active || !active.auto_apply) throw new Error('La aplicación automática se desactivó durante la revisión; no se aplicó ningún perfil.');
       const client = new McpClient(copy.url);
@@ -261,7 +257,8 @@ async function reviewBot(botId, source = 'manual') {
     }
     const target = STATE.bots.find((item) => item.id === botId);
     if (target) {
-      if (selected) target.current_profile = selected;
+      target.profiles = profiles;
+      if (selected) target.applied_profile = selected;
       target.last_review_at = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
       target.next_review_at = Date.now() / 1000 + STATE.interval_hours * 3600;
       target.last_result = {
@@ -388,17 +385,12 @@ async function handle(request, response) {
         let endpoint;
         try { endpoint = safeEndpoint(String(body.url || '')); } catch (error) { throw Object.assign(error, { status: 400 }); }
         if (!name || name.length > 60) throw Object.assign(new Error('El nombre del bot debe tener entre 1 y 60 caracteres.'), { status: 400 });
-        const currentProfile = String(body.current_profile || '').trim();
-        const profileNotes = String(body.profile_notes || '').trim();
-        if (currentProfile.length > 100) throw Object.assign(new Error('El perfil actual es demasiado largo.'), { status: 400 });
-        if (!profileNotes || profileNotes.length > 2000) throw Object.assign(new Error('Describe brevemente los perfiles guardados (máximo 2000 caracteres).'), { status: 400 });
         const client = new McpClient(endpoint);
         await client.connect();
         const initial = await snapshot(client);
-        if (!currentProfile || !initial['bot://profiles'].profiles.includes(currentProfile)) throw new Error('Indica un perfil actual que aparezca en la lista de perfiles MCP.');
         const bot = {
           id: crypto.randomUUID().replaceAll('-', ''), name, url: endpoint,
-          current_profile: currentProfile, profile_notes: profileNotes, auto_apply: true, enabled: true,
+          applied_profile: '', profiles: initial['bot://profiles'].profiles, auto_apply: true, enabled: true,
           last_review_at: null, next_review_at: Date.now() / 1000,
           last_result: { ok: true, source: 'connection', status: initial['bot://status'], stats: initial['bot://stats'], hero: initial['bot://hero'], profiles: initial['bot://profiles'].profiles },
         };

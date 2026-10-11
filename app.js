@@ -45,9 +45,11 @@ function renderBot(bot) {
   const online = result.source === "connection" ? true : result.ok === true;
   const message = result.ok === false ? result.error : (result.outcome || recommendation.summary || "Conectado. Ejecuta una revisión para obtener una recomendación.");
   const event = result.events?.generic?.status;
+  const profileCount = Array.isArray(bot.profiles) ? bot.profiles.length : 0;
+  const profileLabel = bot.applied_profile ? `Perfil aplicado: ${bot.applied_profile}` : profileCount ? `${profileCount} perfiles leídos del MCP` : "Perfiles sin leer";
   const eventActive = event && !["INACTIVE", "NONE", "UNAVAILABLE"].includes(String(event).toUpperCase());
   return `<article class="panel bot-card" data-bot-id="${escapeHtml(bot.id)}">
-    <div class="bot-top"><div class="bot-title"><span class="bot-icon" aria-hidden="true">${escapeHtml(bot.name.slice(0, 1).toUpperCase())}</span><div><h3>${escapeHtml(bot.name)}</h3><span class="bot-subtitle">${escapeHtml(bot.current_profile || "Perfil actual sin indicar")} · ${escapeHtml(waitLabel(bot.next_review_at))}</span></div></div><span class="bot-state ${online ? "" : "offline"}">${busy ? "REVISANDO" : online ? (bot.enabled ? "CONECTADO" : "PAUSADO") : "REVISIÓN FALLIDA"}</span></div>
+    <div class="bot-top"><div class="bot-title"><span class="bot-icon" aria-hidden="true">${escapeHtml(bot.name.slice(0, 1).toUpperCase())}</span><div><h3>${escapeHtml(bot.name)}</h3><span class="bot-subtitle">${escapeHtml(profileLabel)} · ${escapeHtml(waitLabel(bot.next_review_at))}</span></div></div><span class="bot-state ${online ? "" : "offline"}">${busy ? "REVISANDO" : online ? (bot.enabled ? "CONECTADO" : "PAUSADO") : "REVISIÓN FALLIDA"}</span></div>
     <div class="bot-metrics"><div class="metric"><small>Créditos</small><b>${number(stats.credits)}</b></div><div class="metric"><small>Uridium · reservado para puertas</small><b>${number(stats.uridium)}</b></div><div class="metric"><small>Estado / mapa</small><b>${escapeHtml(status.map_name || "Sin datos")}</b></div><div class="metric"><small>Evento NPC</small><b>${escapeHtml(eventActive ? event : "Sin evento activo")}</b></div></div>
     <div class="bot-bottom"><div class="review-note">${escapeHtml(message)}${recommendation.confidence ? ` · Confianza ${Math.round(recommendation.confidence * 100)}%` : ""}${result.reviewed_at ? ` · ${escapeHtml(new Date(result.reviewed_at).toLocaleString("es-ES"))}` : ""}</div><div class="bot-actions"><label class="autotoggle"><input class="auto-apply" type="checkbox" ${bot.auto_apply ? "checked" : ""} aria-label="Aplicar automáticamente perfiles guardados para ${escapeHtml(bot.name)}"> Aplicar perfil guardado</label><button class="button button-quiet review-button" type="button" ${busy ? "disabled" : ""}>${busy ? "Analizando…" : "Revisar ahora"}</button><button class="text-button remove-button" type="button" aria-label="Eliminar ${escapeHtml(bot.name)}">Eliminar</button></div></div>
   </article>`;
@@ -97,8 +99,7 @@ $("#add-bot-panel").addEventListener("submit", async (event) => {
   button.textContent = "Conectando…";
   try {
     const result = await api("/api/bots", { method: "POST", body: JSON.stringify({
-      name: form.get("name"), port: form.get("port"), current_profile: form.get("current_profile"),
-      profile_notes: form.get("profile_notes"), url: `http://127.0.0.1:${form.get("port")}/mcp`
+      name: form.get("name"), port: form.get("port"), url: `http://127.0.0.1:${form.get("port")}/mcp`
     }) });
     state.bots.push(result.bot);
     render();
