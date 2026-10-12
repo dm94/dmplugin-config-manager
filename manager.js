@@ -25,31 +25,31 @@ function withLock(fn) {
 }
 
 function safeEndpoint(raw) {
-  if (typeof raw !== 'string' || !raw.trim()) throw new Error('El MCP debe ser una URL HTTP local, sin credenciales.');
+  if (typeof raw !== 'string' || !raw.trim()) throw new Error('MCP must be a local HTTP URL without credentials.');
   let url;
-  try { url = new URL(raw.trim()); } catch { throw new Error('El MCP debe ser una URL HTTP local, sin credenciales.'); }
-  if (url.protocol !== 'http:' || !url.hostname || url.username || url.password) throw new Error('El MCP debe ser una URL HTTP local, sin credenciales.');
+  try { url = new URL(raw.trim()); } catch { throw new Error('MCP must be a local HTTP URL without credentials.'); }
+  if (url.protocol !== 'http:' || !url.hostname || url.username || url.password) throw new Error('MCP must be a local HTTP URL without credentials.');
   const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
   const family = net.isIP(host);
   const loopback = host === 'localhost' || host === '::1' || (family === 4 && host.startsWith('127.'));
   const privateV4 = family === 4 && (/^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host) || /^169\.254\./.test(host));
   const privateV6 = family === 6 && (/^(fc|fd|fe80)/i.test(host));
-  if (!loopback && !privateV4 && !privateV6) throw new Error('La dirección MCP debe pertenecer a localhost o a una red privada.');
+  if (!loopback && !privateV4 && !privateV6) throw new Error('MCP address must belong to localhost or a private network.');
   const port = url.port ? Number(url.port) : 80;
-  if (!url.port || port < 1024 || port > 65535) throw new Error('El puerto MCP debe estar entre 1024 y 65535.');
-  if (!['', '/', '/mcp'].includes(url.pathname) || url.search || url.hash) throw new Error('El endpoint debe apuntar a /mcp.');
+  if (!url.port || port < 1024 || port > 65535) throw new Error('MCP port must be between 1024 and 65535.');
+  if (!['', '/', '/mcp'].includes(url.pathname) || url.search || url.hash) throw new Error('Endpoint must point to /mcp.');
   return `http://${url.host}${url.pathname || '/mcp'}`;
 }
 
 function safeAiUrl(raw) {
-  if (typeof raw !== 'string' || !raw.trim() || raw.length > 2048) throw new Error('Indica una URL base válida para la API compatible con OpenAI.');
+  if (typeof raw !== 'string' || !raw.trim() || raw.length > 2048) throw new Error('Please provide a valid base URL for the OpenAI-compatible API.');
   let url;
-  try { url = new URL(raw.trim()); } catch { throw new Error('Indica una URL base válida para la API compatible con OpenAI.'); }
-  if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password) throw new Error('La URL de IA debe usar HTTPS y no incluir credenciales.');
-  if (url.search || url.hash) throw new Error('La URL base de IA no puede incluir query ni fragmento.');
+  try { url = new URL(raw.trim()); } catch { throw new Error('Please provide a valid base URL for the OpenAI-compatible API.'); }
+  if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password) throw new Error('AI URL must use HTTPS and must not include credentials.');
+  if (url.search || url.hash) throw new Error('AI base URL must not include query or fragment.');
   const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
   const loopback = host === 'localhost' || host === '::1' || (net.isIP(host) === 4 && host.startsWith('127.'));
-  if (url.protocol !== 'https:' && !loopback) throw new Error('Usa HTTPS para servicios remotos; HTTP solo se permite en localhost.');
+  if (url.protocol !== 'https:' && !loopback) throw new Error('Use HTTPS for remote services; HTTP is only allowed for localhost.');
   let pathname = url.pathname.replace(/\/$/, '');
   if (pathname.endsWith('/chat/completions')) pathname = pathname.slice(0, -'/chat/completions'.length).replace(/\/$/, '');
   return `${url.protocol}//${url.host.toLowerCase()}${pathname}`;
@@ -106,14 +106,14 @@ class McpClient {
     let response;
     try {
       response = await fetch(this.endpoint, { method: 'POST', headers, body: JSON.stringify(payload), signal: AbortSignal.timeout(this.timeoutMs) });
-    } catch (error) { throw new Error(`No se pudo conectar con ${this.endpoint}: ${error.message}`); }
-    if (response.status === 404 && this.sessionId) { this.sessionId = null; throw new Error('La sesión MCP expiró; vuelve a revisar para reconectar.'); }
-    if (!response.ok) throw new Error(`MCP respondió HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
+    } catch (error) { throw new Error(`Could not connect to ${this.endpoint}: ${error.message}`); }
+    if (response.status === 404 && this.sessionId) { this.sessionId = null; throw new Error('MCP session expired; please review again to reconnect.'); }
+    if (!response.ok) throw new Error(`MCP responded with HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
     this.sessionId = response.headers.get('mcp-session-id') || this.sessionId;
     const body = Buffer.from(await response.arrayBuffer());
-    if (body.length > MAX_BODY) throw new Error('Respuesta MCP demasiado grande (límite 1 MB).');
+    if (body.length > MAX_BODY) throw new Error('MCP response too large (limit 1 MB).');
     if (notification) return null;
-    if (!body.length) throw new Error('El MCP devolvió una respuesta vacía a una solicitud RPC.');
+    if (!body.length) throw new Error('MCP returned empty response to RPC request.');
     const contentType = response.headers.get('content-type') || '';
     let message;
     if (contentType.includes('text/event-stream')) {
@@ -122,17 +122,17 @@ class McpClient {
         const text = event.split(/\r?\n/).filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trimStart()).join('\n');
         try { return JSON.parse(text); } catch { return null; }
       }).find((item) => item?.id === id);
-      if (!message) throw new Error('La respuesta SSE MCP no contenía la respuesta solicitada.');
+      if (!message) throw new Error('MCP SSE response did not contain the requested response.');
     } else {
-      try { message = JSON.parse(body.toString('utf8')); } catch { throw new Error('Respuesta MCP JSON inválida.'); }
+      try { message = JSON.parse(body.toString('utf8')); } catch { throw new Error('Invalid MCP JSON response.'); }
     }
-    if (message.error) throw new Error(`MCP ${message.error.code || 'error'}: ${message.error.message || 'fallo'}`);
+    if (message.error) throw new Error(`MCP ${message.error.code || 'error'}: ${message.error.message || 'failure'}`);
     return message.result;
   }
 
   async connect() {
     const result = await this.rpc('initialize', { protocolVersion: this.protocolVersion, capabilities: {}, clientInfo: { name: 'DmPlugin Plus Config Manager', version: '0.2.0' } });
-    if (!result || !result.protocolVersion) throw new Error('El MCP devolvió una inicialización inválida.');
+    if (!result || !result.protocolVersion) throw new Error('MCP returned invalid initialization.');
     this.protocolVersion = result.protocolVersion;
     await this.rpc('notifications/initialized', {}, true);
   }
@@ -163,7 +163,7 @@ async function snapshot(client) {
   const uris = ['bot://status', 'bot://hero', 'bot://stats', 'bot://profiles', 'mcp://inventory', 'mcp://npc_event'];
   const values = Object.fromEntries(await Promise.all(uris.map(async (uri) => [uri, await client.readResource(uri)])));
   const profiles = values['bot://profiles']?.profiles || [];
-  if (!Array.isArray(profiles) || profiles.length > 500 || !profiles.every((profile) => typeof profile === 'string' && profile)) throw new Error('La lista de perfiles MCP tiene un formato inesperado.');
+  if (!Array.isArray(profiles) || profiles.length > 500 || !profiles.every((profile) => typeof profile === 'string' && profile)) throw new Error('MCP profile list has unexpected format.');
   values['mcp://inventory'] = compactInventory(values['mcp://inventory']);
   values['bot://profiles'] = { profiles };
   return values;
@@ -172,17 +172,17 @@ async function snapshot(client) {
 function parseRecommendation(content, profiles) {
   let candidate;
   try { candidate = JSON.parse(content); } catch { throw new Error('La API de IA no devolvió JSON válido.'); }
-  if (!candidate || Array.isArray(candidate) || typeof candidate !== 'object') throw new Error('La recomendación de IA debe ser un objeto JSON.');
+  if (!candidate || Array.isArray(candidate) || typeof candidate !== 'object') throw new Error('AI recommendation must be a JSON object.');
   const allowed = new Set(['action', 'profile', 'confidence', 'summary', 'reasoning']);
-  if (!Object.keys(candidate).some((key) => ['action', 'confidence', 'summary', 'reasoning'].includes(key))) throw new Error('La recomendación de IA está incompleta.');
-  if (Object.keys(candidate).some((key) => !allowed.has(key))) throw new Error('La IA devolvió campos no reconocidos; se descarta la recomendación.');
+  if (!Object.keys(candidate).some((key) => ['action', 'confidence', 'summary', 'reasoning'].includes(key))) throw new Error('AI recommendation is incomplete.');
+  if (Object.keys(candidate).some((key) => !allowed.has(key))) throw new Error('AI returned unrecognized fields; recommendation discarded.');
   let action = candidate.action || 'keep';
-  if (!['keep', 'use_profile', 'create_profile'].includes(action)) throw new Error('La IA recomendó una acción no permitida.');
+  if (!['keep', 'use_profile', 'create_profile'].includes(action)) throw new Error('AI recommended an unauthorized action.');
   let blockedReason;
   if (action === 'use_profile' && (typeof candidate.profile !== 'string' || !profiles.includes(candidate.profile))) {
-    action = 'keep'; blockedReason = 'Se descartó una recomendación de perfil no anunciada por el MCP.';
+    action = 'keep'; blockedReason = 'Profile recommendation not announced by MCP was discarded.';
   }
-  if (action === 'create_profile') { action = 'keep'; blockedReason = 'El MCP conectado no ofrece una herramienta para crear/guardar perfiles.'; }
+  if (action === 'create_profile') { action = 'keep'; blockedReason = 'Connected MCP does not offer a tool to create/save profiles.'; }
   const confidence = Number(candidate.confidence);
   return {
     action,

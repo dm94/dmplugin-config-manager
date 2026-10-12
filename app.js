@@ -23,7 +23,7 @@ async function api(url, options = {}) {
 
 function number(value) {
   if (value == null || value === "") return "—";
-  const parsed = Number(value);  return Number.isFinite(parsed) ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(parsed) : "—";
+  const parsed = Number(value); return Number.isFinite(parsed) ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(parsed) : "—";
 }
 
 function waitLabel(timestamp) {
@@ -32,7 +32,7 @@ function waitLabel(timestamp) {
   if (delta <= 0) return "Review pending";
   const hours = Math.floor(delta / 3600000);
   const minutes = Math.floor((delta % 3600000) / 60000);
-  return `Next review in ${hours ? `${hours} h ` : ""}${minutes} min`; 
+  return `Next review in ${hours ? `${hours} h ` : ""}${minutes} min`;
 }
 
 function renderBot(bot) {
@@ -97,9 +97,11 @@ $("#add-bot-panel").addEventListener("submit", async (event) => {
   button.disabled = true;
   button.textContent = "Conectando…";
   try {
-    const result = await api("/api/bots", { method: "POST", body: JSON.stringify({
-      name: form.get("name"), port: form.get("port"), url: `http://127.0.0.1:${form.get("port")}/mcp`
-    }) });
+    const result = await api("/api/bots", {
+      method: "POST", body: JSON.stringify({
+        name: form.get("name"), port: form.get("port"), url: `http://127.0.0.1:${form.get("port")}/mcp`
+      })
+    });
     state.bots.push(result.bot);
     render();
     formElement.reset();
@@ -114,11 +116,13 @@ $("#settings-form").addEventListener("input", () => { settingsDirty = true; });
 $("#settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    await api("/api/settings", { method: "POST", body: JSON.stringify({
-      interval_hours: Number($("#interval-hours").value), ai_url: $("#ai-url").value,
-      ai_model: $("#ai-model").value, ai_api_key: $("#ai-api-key").value,
-      clear_ai_api_key: $("#clear-ai-api-key").checked
-    }) });
+    await api("/api/settings", {
+      method: "POST", body: JSON.stringify({
+        interval_hours: Number($("#interval-hours").value), ai_url: $("#ai-url").value,
+        ai_model: $("#ai-model").value, ai_api_key: $("#ai-api-key").value,
+        clear_ai_api_key: $("#clear-ai-api-key").checked
+      })
+    });
     $("#clear-ai-api-key").checked = false;
     settingsDirty = false;
     await refresh();

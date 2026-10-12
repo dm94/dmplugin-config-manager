@@ -1,50 +1,184 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <title>DmPlugin · Local Manager</title>
-  <link rel="stylesheet" href="/style.css">
-  <script src="/app.js" defer></script>
-</head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="/" aria-label="DmPlugin Local Manager"><span class="brand-mark">D</span><span>DmPlugin <small>LOCAL CONTROL</small></span></a>
-    <span class="local-pill"><i></i> Only on this computer</span>
-  </header>
-  <main>
-    <section class="intro">
-      <p class="eyebrow">MULTI-BOT MANAGEMENT · MCP</p>
-      <h1>Control each account.<br><span>Optimize progress.</span></h1>
-      <p class="lede">Configure an OpenAI-compatible API to review profiles, resources, and events at the chosen interval.</p>
-    </section>
-    <section class="settings panel" aria-labelledby="settings-title">
-      <div class="section-heading"><div><p class="eyebrow">AUTOMATION</p><h2 id="settings-title">Smart review</h2></div><span id="ai-status" class="status-chip">API not configured</span></div>
-      <form id="settings-form" class="settings-grid">
-        <label>Review frequency <span>Hours between analyses</span><input id="interval-hours" type="number" min="1" max="168" value="8" required></label>
-        <label>OpenAI-compatible base URL <span>e.g. https://api.example.com/v1</span><input id="ai-url" type="url" placeholder="https://api.example.com/v1" maxlength="2048" required></label>
-        <label>Model <span>Exact identifier published by the provider</span><input id="ai-model" type="text" maxlength="100" placeholder="e.g. chat-model" required></label>
-        <label>API key <span>Optional for endpoints without auth; stored locally</span><input id="ai-api-key" type="password" maxlength="4096" autocomplete="new-password" placeholder="Not configured"></label>
-        <label class="key-clear"><input id="clear-ai-api-key" type="checkbox"> Clear saved API key</label>
-        <button class="button button-dark" type="submit">Save settings</button>
-      </form>
-      <p class="fineprint">The API key is kept in the local configuration file and never returned to the browser. Confirm your provider's data policy. Uridium is reserved for doors; no purchases are made.</p>
-    </section>
-    <section class="bots-section" aria-labelledby="bots-title">
-      <div class="section-heading"><div><p class="eyebrow">CONNECTED INSTANCES</p><h2 id="bots-title">Your bots <span id="bot-count" class="count">0</span></h2></div><button id="add-toggle" class="button button-accent" type="button" aria-expanded="false" aria-controls="add-bot-panel">＋ Add bot</button></div>
-      <form id="add-bot-panel" class="panel add-form" hidden>
-        <h3>Connect via MCP</h3>
-        <p>Enter the account name and DmPlugin's MCP port. The manager reads profiles and current state directly from MCP - no need to enter them.</p>
-        <div class="add-grid"><label>Account name<input name="name" maxlength="60" placeholder="Main bot" required></label><label>MCP port<input name="port" type="number" min="1024" max="65535" value="9876" required></label></div>
-        <div class="form-actions"><button class="button button-quiet" id="cancel-add" type="button">Cancel</button><button class="button button-dark" type="submit">Connect and read state</button></div>
-      </form>
-      <div id="bot-list" class="bot-list" aria-live="polite"></div>
-      <div id="empty-state" class="empty-state"><span class="empty-glyph">↗</span><h3>Connect your first bot</h3><p>Add DmPlugin's MCP address to see its profiles, resources, and state in this panel.</p><button class="button button-dark" type="button" id="empty-add">Connect a bot</button></div>
-    </section>
-    <section class="guardrails panel" aria-labelledby="limits-title"><p class="eyebrow">VERIFIED CAPABILITIES</p><h2 id="limits-title">Automation with clear limits</h2><div class="limit-grid"><p><span class="limit-icon">✓</span><b>Existing profiles</b><span>The AI can only select profiles announced by MCP.</span></p><p><span class="limit-icon limit-blocked">—</span><b>Create profiles</b><span>Blocked: DmPlugin does not announce a tool to save new profiles.</span></p><p><span class="limit-icon limit-blocked">—</span><b>In-game purchases</b><span>Disabled: no credits or uridium are spent automatically.</span></p></div></section>
-    <footer><span>DMPLUGIN CONFIG MANAGER · NODE.JS · LOCAL EXECUTION</span><span id="clock"></span></footer>
-  </main>
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>DmPlugin · Local Manager</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="DmPlugin Local Manager"
+        ><span class="brand-mark">D</span
+        ><span>DmPlugin <small>LOCAL CONTROL</small></span></a
+      >
+      <span class="local-pill"><i></i> Only on this computer</span>
+    </header>
+    <main>
+      <section class="intro">
+        <p class="eyebrow">MULTI-BOT MANAGEMENT · MCP</p>
+        <h1>Control each account.<br /><span>Optimize progress.</span></h1>
+        <p class="lede">
+          Configure an OpenAI-compatible API to review profiles, resources, and
+          events at the chosen interval.
+        </p>
+      </section>
+      <section class="settings panel" aria-labelledby="settings-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">AUTOMATION</p>
+            <h2 id="settings-title">Smart review</h2>
+          </div>
+          <span id="ai-status" class="status-chip">API not configured</span>
+        </div>
+        <form id="settings-form" class="settings-grid">
+          <label
+            >Review frequency <span>Hours between analyses</span
+            ><input
+              id="interval-hours"
+              type="number"
+              min="1"
+              max="168"
+              value="8"
+              required
+          /></label>
+          <label
+            >OpenAI-compatible base URL
+            <span>e.g. https://api.example.com/v1</span
+            ><input
+              id="ai-url"
+              type="url"
+              placeholder="https://api.example.com/v1"
+              maxlength="2048"
+              required
+          /></label>
+          <label
+            >Model <span>Exact identifier published by the provider</span
+            ><input
+              id="ai-model"
+              type="text"
+              maxlength="100"
+              placeholder="e.g. chat-model"
+              required
+          /></label>
+          <label
+            >API key
+            <span>Optional for endpoints without auth; stored locally</span
+            ><input
+              id="ai-api-key"
+              type="password"
+              maxlength="4096"
+              autocomplete="new-password"
+              placeholder="Not configured"
+          /></label>
+          <label class="key-clear"
+            ><input id="clear-ai-api-key" type="checkbox" /> Clear saved API
+            key</label
+          >
+          <button class="button button-dark" type="submit">
+            Save settings
+          </button>
+        </form>
+        <p class="fineprint">
+          The API key is kept in the local configuration file and never returned
+          to the browser. Confirm your provider's data policy. Uridium is
+          reserved for doors; no purchases are made.
+        </p>
+      </section>
+      <section class="bots-section" aria-labelledby="bots-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">CONNECTED INSTANCES</p>
+            <h2 id="bots-title">
+              Your bots <span id="bot-count" class="count">0</span>
+            </h2>
+          </div>
+          <button
+            id="add-toggle"
+            class="button button-accent"
+            type="button"
+            aria-expanded="false"
+            aria-controls="add-bot-panel"
+          >
+            ＋ Add bot
+          </button>
+        </div>
+        <form id="add-bot-panel" class="panel add-form" hidden>
+          <h3>Connect via MCP</h3>
+          <p>
+            Enter the account name and DmPlugin's MCP port. The manager reads
+            profiles and current state directly from MCP - no need to enter
+            them.
+          </p>
+          <div class="add-grid">
+            <label
+              >Account name<input
+                name="name"
+                maxlength="60"
+                placeholder="Main bot"
+                required /></label
+            ><label
+              >MCP port<input
+                name="port"
+                type="number"
+                min="1024"
+                max="65535"
+                value="9876"
+                required
+            /></label>
+          </div>
+          <div class="form-actions">
+            <button class="button button-quiet" id="cancel-add" type="button">
+              Cancel</button
+            ><button class="button button-dark" type="submit">
+              Connect and read state
+            </button>
+          </div>
+        </form>
+        <div id="bot-list" class="bot-list" aria-live="polite"></div>
+        <div id="empty-state" class="empty-state">
+          <span class="empty-glyph">↗</span>
+          <h3>Connect your first bot</h3>
+          <p>
+            Add DmPlugin's MCP address to see its profiles, resources, and state
+            in this panel.
+          </p>
+          <button class="button button-dark" type="button" id="empty-add">
+            Connect a bot
+          </button>
+        </div>
+      </section>
+      <section class="guardrails panel" aria-labelledby="limits-title">
+        <p class="eyebrow">VERIFIED CAPABILITIES</p>
+        <h2 id="limits-title">Automation with clear limits</h2>
+        <div class="limit-grid">
+          <p>
+            <span class="limit-icon">✓</span><b>Existing profiles</b
+            ><span>The AI can only select profiles announced by MCP.</span>
+          </p>
+          <p>
+            <span class="limit-icon limit-blocked">—</span><b>Create profiles</b
+            ><span
+              >Blocked: DmPlugin does not announce a tool to save new
+              profiles.</span
+            >
+          </p>
+          <p>
+            <span class="limit-icon limit-blocked">—</span
+            ><b>In-game purchases</b
+            ><span
+              >Disabled: no credits or uridium are spent automatically.</span
+            >
+          </p>
+        </div>
+      </section>
+      <footer>
+        <span>DMPLUGIN CONFIG MANAGER · NODE.JS · LOCAL EXECUTION</span
+        ><span id="clock"></span>
+      </footer>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
 </html>
