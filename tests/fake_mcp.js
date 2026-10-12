@@ -1,7 +1,7 @@
 'use strict';
 const http = require('node:http');
 
-const PROFILES = ['config', 'doors', 'paladio'];
+const PROFILES = ['config', 'doors', 'palladium'];
 const RESOURCES = {
   'bot://profiles': { profiles: PROFILES },
   'bot://status': { running: true, map_name: '1-5' },

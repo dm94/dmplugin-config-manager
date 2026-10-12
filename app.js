@@ -95,7 +95,7 @@ $("#add-bot-panel").addEventListener("submit", async (event) => {
   const form = new FormData(formElement);
   const button = event.submitter;
   button.disabled = true;
-  button.textContent = "Conectando…";
+  button.textContent = "Connecting…";
   try {
     const result = await api("/api/bots", {
       method: "POST", body: JSON.stringify({

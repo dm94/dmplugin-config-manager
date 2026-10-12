@@ -96,7 +96,7 @@ test('HTTP server serves UI and persists settings without exposing the key', asy
   const html = await fetch(`${base}/`);
   assert.equal(html.status, 200);
   const htmlText = await html.text();
-  assert.match(htmlText, /URL base OpenAI-compatible/);
+  assert.match(htmlText, /OpenAI-compatible base URL/);
   assert.doesNotMatch(htmlText, /name="current_profile"|name="profile_notes"/);
   const settings = await fetch(`${base}/api/settings`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
@@ -130,16 +130,16 @@ test('adding a bot only needs its name and MCP port and reads profiles from MCP'
   });
   const created = await fetch(`http://127.0.0.1:${server.address().port}/api/bots`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name: 'Cuenta GG', url: `http://127.0.0.1:${mcp.address().port}/mcp` }),
+    body: JSON.stringify({ name: 'Main Account', url: `http://127.0.0.1:${mcp.address().port}/mcp` }),
   });
   assert.equal(created.status, 201);
   const { bot } = await created.json();
-  assert.equal(bot.name, 'Cuenta GG');
+  assert.equal(bot.name, 'Main Account');
   assert.equal(bot.applied_profile, '');
   assert.equal('current_profile' in bot, false);
   assert.equal('profile_notes' in bot, false);
-  assert.deepEqual(bot.profiles, ['config', 'doors', 'paladio']);
-  assert.deepEqual(bot.last_result.profiles, ['config', 'doors', 'paladio']);
+  assert.deepEqual(bot.profiles, ['config', 'doors', 'palladium']);
+  assert.deepEqual(bot.last_result.profiles, ['config', 'doors', 'palladium']);
   const publicState = await (await fetch(`http://127.0.0.1:${server.address().port}/api/state`)).json();
   assert.equal(JSON.stringify(publicState).includes('current_profile'), false);
 });
@@ -153,7 +153,7 @@ test('review without a user-declared current profile applies the profile backed 
   manager.setStatePath(path.join(directory, 'state.json'));
   global.fetch = async (url, options) => {
     if (String(url).startsWith('https://api.example.com')) {
-      return response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ action: 'use_profile', profile: 'doors', confidence: 0.7, summary: 'Convierte el evento en puertas' }) } }] }));
+      return response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ action: 'use_profile', profile: 'doors', confidence: 0.7, summary: 'Convert the event into doors' }) } }] }));
     }
     return realFetch(url, options);
   };
@@ -173,7 +173,7 @@ test('review without a user-declared current profile applies the profile backed 
   const base = `http://127.0.0.1:${server.address().port}`;
   const created = await fetch(`${base}/api/bots`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name: 'Cuenta GG', url: `http://127.0.0.1:${mcp.address().port}/mcp` }),
+    body: JSON.stringify({ name: 'Main Account', url: `http://127.0.0.1:${mcp.address().port}/mcp` }),
   });
   assert.equal(created.status, 201);
   const { bot } = await created.json();
@@ -186,9 +186,9 @@ test('review without a user-declared current profile applies the profile backed 
     const current = state.bots.find((item) => item.id === bot.id);
     if (current?.last_result?.outcome) reviewed = current;
   }
-  assert.ok(reviewed, 'la revisión debía completarse');
+  assert.ok(reviewed, 'the review should have completed');
   assert.equal(reviewed.applied_profile, 'doors');
-  assert.match(reviewed.last_result.outcome, /Perfil activado: doors/);
+  assert.match(reviewed.last_result.outcome, /Profile activated: doors/);
   assert.equal(reviewed.last_result.recommendation.action, 'use_profile');
 });
 
@@ -199,6 +199,6 @@ test('MCP Streamable HTTP initialize/resources/tools work against fake server', 
   context.after(() => server.close());
   const client = new manager.McpClient(`http://127.0.0.1:${server.address().port}/mcp`);
   await client.connect();
-  assert.deepEqual((await client.readResource('bot://profiles')).profiles, ['config', 'doors', 'paladio']);
+  assert.deepEqual((await client.readResource('bot://profiles')).profiles, ['config', 'doors', 'palladium']);
   assert.equal((await client.tools())[0].name, 'set_profile');
 });
