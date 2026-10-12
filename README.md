@@ -1,51 +1,51 @@
 # DmPlugin Config Manager
 
-Panel local, independiente y sin dependencias npm para leer y coordinar varios bots DarkBot mediante el MCP Bridge de DmPlugin.
+Local, independent panel with no npm dependencies to read and coordinate multiple DarkBot bots via DmPlugin's MCP Bridge.
 
-## Requisitos
+## Requirements
 
-- Node.js 20 o superior (incluye `fetch`; no hace falta instalar paquetes).
-- DmPlugin cargado en cada bot, con MCP habilitado y puerto configurado (por defecto `9876`).
-- Un endpoint de chat compatible con OpenAI (ruta `/chat/completions`), un identificador de modelo y una API key si el proveedor la requiere.
+- Node.js 20 or higher (includes `fetch`; no packages need to be installed).
+- DmPlugin loaded on each bot, with MCP enabled and a configured port (default `9876`).
+- An OpenAI-compatible chat endpoint (route `/chat/completions`), a model identifier, and an API key if the provider requires one.
 
-## Ejecutar en Windows
+## Running on Windows
 
-Desde la raíz del repositorio:
+From the repository root:
 
 ```powershell
 node dmplugin-config-manager/manager.js
 ```
 
-Abre <http://127.0.0.1:8765/>. Para usar otro puerto:
+Open <http://127.0.0.1:8765/>. To use a different port:
 
 ```powershell
 node dmplugin-config-manager/manager.js --port 8766
 ```
 
-El servidor solo escucha en loopback. Pulsa `Ctrl+C` en la terminal para detenerlo; cerrar la pestaña no detiene el proceso.
+The server only listens on loopback. Press `Ctrl+C` in the terminal to stop it; closing the tab does not stop the process.
 
-## Uso
+## Usage
 
-1. En **URL base OpenAI-compatible**, indica la URL base del proveedor (por ejemplo, `https://api.example.com/v1`), el identificador exacto del modelo y la API key si es necesaria. El gestor añade `/chat/completions`; también acepta una URL terminada ya con esa ruta.
-2. Añade cada bot con un nombre y su puerto MCP. Al conectar, el gestor lee del propio MCP la lista de perfiles y el estado; no hay que escribir perfiles ni descripciones.
-3. La primera revisión se programa después de conectar y las siguientes usan el intervalo configurado (8 horas por defecto).
-4. **Aplicar perfil guardado** permite aplicar solo una recomendación de perfil que siga existiendo en MCP. Desactívalo para recibir recomendaciones sin cambios automáticos.
+1. In **OpenAI-compatible base URL**, specify the provider's base URL (e.g., `https://api.example.com/v1`), the exact model identifier, and the API key if needed. The manager adds `/chat/completions`; it also accepts a URL that already ends with that path.
+2. Add each bot with a name and its MCP port. When connecting, the manager reads the profile list and status directly from MCP; no need to enter profiles or descriptions.
+3. The first review is scheduled after connecting, and subsequent reviews use the configured interval (8 hours by default).
+4. **Apply saved profile** allows applying only a profile recommendation that still exists in MCP. Disable it to receive recommendations without automatic changes.
 
-La configuración local se guarda en `~/.dmplugin-manager/state.json` (Windows: carpeta del usuario). Puedes cambiar la ubicación con `DM_MANAGER_HOME`. El archivo almacena la API key localmente con permisos privados en sistemas POSIX. La key nunca se devuelve al navegador; los datos de juego y perfiles se envían al endpoint elegido. Comprueba la política de privacidad del proveedor.
+Local configuration is saved in `~/.dmplugin-manager/state.json` (Windows: user folder). You can change the location with `DM_MANAGER_HOME`. The file stores the API key locally with private permissions on POSIX systems. The key is never returned to the browser; game data and profiles are sent to the chosen endpoint. Check your provider's privacy policy.
 
-## Capacidades y límites
+## Capabilities and Limits
 
-El MCP consultado ofrece recursos de estado, estadísticas, inventario, perfiles y eventos, además de `set_profile` y `set_config`. No se observó herramienta para crear perfiles o comprar equipamiento. Por lo tanto, este gestor:
+The queried MCP offers state, stats, inventory, profiles, and events resources, plus `set_profile` and `set_config`. No tool for creating profiles or buying equipment was observed. Therefore, this manager:
 
-- Cambia solo a perfiles existentes cuando se recomienda y está activada la aplicación automática.
-- No crea perfiles nuevos, compra objetos, gasta créditos/uridium ni modifica libremente ajustes.
-- Reserva el uridium para puertas y envía al proveedor configurado un resumen limitado del estado del bot seleccionado.
+- Only switches to existing profiles when recommended and automatic application is enabled.
+- Does not create new profiles, buy items, spend credits/uridium, or freely modify settings.
+- Reserves uridium for doors and sends the configured provider a limited summary of the selected bot's state.
 
-El inventario disponible puede no reflejar todas las propiedades o niveles del equipo; las recomendaciones no garantizan la configuración óptima.
+Available inventory may not reflect all equipment properties or levels; recommendations do not guarantee optimal configuration.
 
-El MCP de DmPlugin publica la lista de perfiles (`bot://profiles`) pero no cuál está activo. Por eso el gestor no pide ese dato: registra únicamente el último perfil que aplicó (`set_profile`) y lo comparte con la IA como contexto. Si cambias de perfil a mano en DarkBot, el gestor no lo sabrá y puede volver a recomendar otro perfil existente.
+The DmPlugin MCP publishes the list of profiles (`bot://profiles`) but not which one is active. For this reason, the manager does not request that data: it only records the last profile it applied (`set_profile`) and shares it with the AI as context. If you manually switch profiles in DarkBot, the manager will not know and may recommend switching back to another existing profile.
 
-## Pruebas
+## Testing
 
 ```powershell
 node --test dmplugin-config-manager/tests/*.test.js
